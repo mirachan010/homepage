@@ -6,13 +6,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("deleteException").addEventListener("click", deleteException);
   document.getElementById("periodForm").addEventListener("submit", addPeriod);
   document.getElementById("patternForm").addEventListener("submit", savePattern);
+  document.getElementById("syncHolidays").addEventListener("click", syncHolidays);
   document.querySelector('[name="scheduleDate"]').addEventListener("change", loadExceptionIntoForm);
 
   const today = formatDate(new Date());
   document.querySelector('[name="scheduleDate"]').value = today;
   document.querySelector('[name="validFrom"]').value = today;
   document.querySelector('[name="baseDate"]').value = today;
-  await refreshConfig();
+  await Promise.all([refreshConfig(), refreshHolidayStatus()]);
   await loadExceptionIntoForm();
 });
 
@@ -136,6 +137,45 @@ async function savePattern(event) {
     });
     await refreshConfig();
   }, "勤務パターンを保存しました");
+}
+
+async function refreshHolidayStatus() {
+  const element = document.getElementById("holidaySyncStatus");
+  try {
+    const status = await api("/api/admin/holidays/status");
+    if (status.status === "not_synced") {
+      element.textContent = "まだ公式データを取得していません。";
+      return;
+    }
+
+    const label = {
+      updated: "公式データを更新",
+      unchanged: "変更なし",
+      failed: "取得失敗"
+    }[status.status] || status.status;
+    const checkedAt = status.checkedAt
+      ? new Date(`${status.checkedAt.replace(" ", "T")}Z`).toLocaleString("ja-JP")
+      : "不明";
+    const range = status.firstDate && status.lastDate
+      ? `／${status.firstDate}〜${status.lastDate}`
+      : "";
+    element.textContent =
+      `最終確認: ${checkedAt}／${label}／${status.rowCount || 0}件${range}`
+      + (status.error ? `／${status.error}` : "");
+  } catch (error) {
+    element.textContent = `同期状態を取得できません: ${error.message}`;
+  }
+}
+
+async function syncHolidays() {
+  const button = document.getElementById("syncHolidays");
+  button.disabled = true;
+  await perform(async () => {
+    const result = await api("/api/admin/holidays/sync", { method: "POST" });
+    await refreshHolidayStatus();
+    return result;
+  }, "公式祝日データを確認しました");
+  button.disabled = false;
 }
 
 function parseBlocks(text) {

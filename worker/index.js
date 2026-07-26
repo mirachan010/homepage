@@ -5,6 +5,13 @@ import {
   getHolidayList,
   getTodayInTokyo
 } from "./schedule.js";
+import {
+  getHolidaySyncStatus,
+  getLatestOfficialHolidaySource,
+  loadOfficialHolidays,
+  officialSourceFromSync,
+  syncOfficialHolidays
+} from "./holidays.js";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -34,6 +41,14 @@ export default {
       }
       return json({ error: message }, status);
     }
+  },
+
+  async scheduled(controller, env, context) {
+    context.waitUntil(
+      syncOfficialHolidays(env.DB, "cron").catch(error => {
+        console.error("祝日の定期同期に失敗しました", error);
+      })
+    );
   }
 };
 
@@ -59,6 +74,14 @@ async function route(request, env) {
 
   if (url.pathname === "/api/admin/config" && request.method === "GET") {
     return getAdminConfig(env.DB);
+  }
+
+  if (url.pathname === "/api/admin/holidays/status" && request.method === "GET") {
+    return json(await getHolidaySyncStatus(env.DB));
+  }
+
+  if (url.pathname === "/api/admin/holidays/sync" && request.method === "POST") {
+    return json(await syncOfficialHolidays(env.DB, "manual"));
   }
 
   if (url.pathname.startsWith("/api/admin/exceptions/") && request.method === "GET") {
@@ -114,7 +137,7 @@ async function routePublicApi(request, url, db) {
     };
   } else if (url.pathname === "/api/v1/holidays") {
     const year = readInteger(url.searchParams, "year", 1949, 2099);
-    result = { year, holidays: getHolidayList(year) };
+    result = await getHolidayYearData(db, year);
   } else {
     const todayKey = getTodayInTokyo();
 
@@ -157,7 +180,7 @@ async function routePublicApi(request, url, db) {
 }
 
 async function loadCalculationData(db, from, to) {
-  const [patternsResult, periodsResult, exceptionsResult, shiftResult] = await db.batch([
+  const [patternsResult, periodsResult, exceptionsResult, shiftResult, holidaysResult] = await db.batch([
     db.prepare("SELECT name, definition_json FROM schedule_patterns ORDER BY name"),
     db.prepare(`
       SELECT id, valid_from, pattern_name, base_date
@@ -188,7 +211,13 @@ async function loadCalculationData(db, from, to) {
       SELECT COALESCE(SUM(cycle_shift), 0) AS total
       FROM schedule_exceptions
       WHERE cycle_shift != 0 AND schedule_date < ?
-    `).bind(from)
+    `).bind(from),
+    db.prepare(`
+      SELECT holiday_date, name
+      FROM holidays
+      WHERE holiday_date BETWEEN ? AND ?
+      ORDER BY holiday_date
+    `).bind(from, to)
   ]);
 
   const patterns = Object.fromEntries(patternsResult.results.map(row => [
@@ -209,17 +238,29 @@ async function loadCalculationData(db, from, to) {
       shift: row.cycle_shift || undefined
     })
   ]));
+  const holidays = Object.fromEntries(holidaysResult.results.map(row => [
+    row.holiday_date,
+    row.name
+  ]));
 
   return {
     patterns,
     periods,
     exceptions,
+    holidays,
     baseCycleShift: Number(shiftResult.results[0]?.total || 0)
   };
 }
 
 async function getScheduleData(db, from, to) {
-  const [patternsResult, periodsResult, exceptionsResult, shiftResult] = await db.batch([
+  const [
+    patternsResult,
+    periodsResult,
+    exceptionsResult,
+    shiftResult,
+    holidaysResult,
+    holidaySyncResult
+  ] = await db.batch([
     db.prepare("SELECT name, label, definition_json FROM schedule_patterns ORDER BY name"),
     db.prepare(`
       SELECT id, valid_from, pattern_name, base_date, note, created_at
@@ -250,7 +291,22 @@ async function getScheduleData(db, from, to) {
       SELECT COALESCE(SUM(cycle_shift), 0) AS total
       FROM schedule_exceptions
       WHERE cycle_shift != 0 AND schedule_date < ?
-    `).bind(from)
+    `).bind(from),
+    db.prepare(`
+      SELECT holiday_date, name
+      FROM holidays
+      WHERE holiday_date BETWEEN ? AND ?
+      ORDER BY holiday_date
+    `).bind(from, to),
+    db.prepare(`
+      SELECT
+        status, provider, dataset_key, dataset_id, resource_id, resource_url,
+        source_last_modified, source_sha256, checked_at
+      FROM holiday_sync_runs
+      WHERE status IN ('updated', 'unchanged')
+      ORDER BY checked_at DESC, rowid DESC
+      LIMIT 1
+    `)
   ]);
 
   const patterns = {};
@@ -281,6 +337,22 @@ async function getScheduleData(db, from, to) {
       updatedAt: row.updated_at
     });
   }
+  const holidays = Object.fromEntries(holidaysResult.results.map(row => [
+    row.holiday_date,
+    row.name
+  ]));
+  const syncRow = holidaySyncResult.results[0];
+  const holidaySource = syncRow ? officialSourceFromSync({
+    status: syncRow.status,
+    provider: syncRow.provider,
+    datasetKey: syncRow.dataset_key,
+    datasetId: syncRow.dataset_id,
+    resourceId: syncRow.resource_id,
+    resourceUrl: syncRow.resource_url,
+    sourceLastModified: syncRow.source_last_modified,
+    checkedAt: syncRow.checked_at,
+    sha256: syncRow.source_sha256
+  }) : null;
 
   return json({
     settings: {
@@ -290,8 +362,40 @@ async function getScheduleData(db, from, to) {
       baseCycleShift: Number(shiftResult.results[0]?.total || 0)
     },
     exceptions,
+    holidays,
+    holidaySource,
     range: { from, to }
   });
+}
+
+async function getHolidayYearData(db, year) {
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+  const [official, sync] = await Promise.all([
+    loadOfficialHolidays(db, from, to),
+    getLatestOfficialHolidaySource(db)
+  ]);
+  const officialEntries = Object.entries(official);
+
+  if (officialEntries.length > 0) {
+    return {
+      year,
+      provisional: false,
+      source: sync,
+      holidays: officialEntries.map(([date, name]) => ({ date, name }))
+    };
+  }
+
+  return {
+    year,
+    provisional: true,
+    source: {
+      kind: "calculated",
+      provider: "mirachan.net組み込み規則",
+      note: "公式CSV未掲載のため暫定値。正式公表後に自動で置き換わります"
+    },
+    holidays: getHolidayList(year)
+  };
 }
 
 async function getAdminConfig(db) {

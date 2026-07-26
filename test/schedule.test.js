@@ -63,6 +63,29 @@ test("取得範囲より前の周期補正を合計値から引き継ぐ", () =>
   assert.equal(calculateSchedule("2026-01-02", scopedData).status, "work");
 });
 
+test("D1の公式祝日が暫定計算より優先される", () => {
+  const weekdayData = {
+    patterns: {
+      weekday: {
+        type: "weekday",
+        mode: "day",
+        workdays: [1, 2, 3, 4, 5]
+      }
+    },
+    periods: [
+      { id: 1, from: "2026-01-01", pattern: "weekday" }
+    ],
+    exceptions: {},
+    holidays: {
+      "2026-07-27": "制度変更で追加された祝日"
+    }
+  };
+
+  const schedule = calculateSchedule("2026-07-27", weekdayData);
+  assert.equal(schedule.status, "rest");
+  assert.equal(schedule.holiday, "制度変更で追加された祝日");
+});
+
 test("祝日一覧と日本時間の日付を返す", () => {
   const holidays = getHolidayList(2026);
   assert.deepEqual(

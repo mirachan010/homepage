@@ -6,7 +6,7 @@ export function calculateSchedule(dateKey, data) {
   let base;
 
   if (period.type === "weekday") {
-    base = calculateWeekday(dateKey, period);
+    base = calculateWeekday(dateKey, period, data);
   } else if (period.type === "cycle") {
     base = calculateCycle(dateKey, period, data.exceptions);
   } else {
@@ -15,7 +15,7 @@ export function calculateSchedule(dateKey, data) {
 
   const mode = exception.mode || base.mode || "day";
   const status = exception.status || base.status || "rest";
-  const holiday = getHolidayName(dateKey);
+  const holiday = data.holidays?.[dateKey] || getHolidayName(dateKey);
 
   return {
     date: dateKey,
@@ -88,10 +88,12 @@ function resolvePeriod(dateKey, data) {
   return { ...pattern, ...active, baseCycleShift: data.baseCycleShift || 0 };
 }
 
-function calculateWeekday(dateKey, period) {
+function calculateWeekday(dateKey, period, data) {
   const workdays = period.workdays || [1, 2, 3, 4, 5];
   const day = parseDate(dateKey).getUTCDay();
-  const holiday = getHolidayName(dateKey) || period.holidays?.[dateKey];
+  const holiday = data.holidays?.[dateKey]
+    || getHolidayName(dateKey)
+    || period.holidays?.[dateKey];
   return {
     mode: period.mode || "day",
     status: workdays.includes(day) && !holiday ? "work" : "rest"

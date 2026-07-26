@@ -35,7 +35,10 @@ async function loadConfig() {
     loadedHolidayYears.add(currentYear);
     loadedHolidayYears.add(currentYear + 1);
 
-    config = { ...scheduleData, holidays };
+    config = {
+      ...scheduleData,
+      holidays: { ...holidays, ...(scheduleData.holidays || {}) }
+    };
     currentStatusData = statusData;
     document.getElementById("pageTitle").textContent = config.settings.title || "みら勤務表";
     validateConfig(config);
@@ -314,7 +317,10 @@ function renderCalendar() {
 function ensureHolidayYears(year) {
   for (const targetYear of [year - 1, year, year + 1]) {
     if (loadedHolidayYears.has(targetYear)) continue;
-    Object.assign(config.holidays, JapaneseHolidays.getHolidayMapForYears([targetYear]));
+    const calculated = JapaneseHolidays.getHolidayMapForYears([targetYear]);
+    for (const [date, name] of Object.entries(calculated)) {
+      if (!Object.hasOwn(config.holidays, date)) config.holidays[date] = name;
+    }
     loadedHolidayYears.add(targetYear);
   }
 }
@@ -511,7 +517,10 @@ async function changeMonth(offset) {
 
   try {
     const scheduleData = await fetchScheduleData(nextMonth);
-    config = { ...scheduleData, holidays: config.holidays };
+    config = {
+      ...scheduleData,
+      holidays: { ...config.holidays, ...(scheduleData.holidays || {}) }
+    };
     validateConfig(config);
     currentMonth = nextMonth;
     renderCalendar();

@@ -10,8 +10,9 @@ Cloudflare Workers、D1、Accessで動かす個人サイトと勤務表です。
 - `public/shift/edit/`: Cloudflare Accessで保護する編集画面
 
 勤務表は、基本周期・基準日の変更履歴・通常と違う日のみをD1へ保存します。
-日本の祝日は `public/shift/holidays.js` がブラウザ上で算出するため、年次更新用の
-GitHub Actionsは不要です。
+日本の祝日はCloudflare Workerがe-Govデータポータル経由で内閣府の公式CSVを
+毎月確認し、変更時だけD1へ反映します。GitHub Actionsは使用しません。
+取得元・更新方法・将来の修正箇所は [`docs/holidays.md`](docs/holidays.md) に記録しています。
 
 ## ローカル確認
 
@@ -60,7 +61,7 @@ npm run dev
 | `/api/v1/today` | 今日の勤務状態 |
 | `/api/v1/next-rest` | 次の休み |
 | `/api/v1/month?year=2026&month=8` | 指定月の勤務表 |
-| `/api/v1/holidays?year=2026` | 指定年の日本の祝日 |
+| `/api/v1/holidays?year=2026` | 指定年の日本の祝日と出典・暫定状態 |
 
 公開APIは `GET` と `HEAD` に対応し、ブラウザ等から利用できるよう
 `Access-Control-Allow-Origin: *` を返します。仕様変更が必要になった場合は
@@ -69,3 +70,4 @@ npm run dev
 公開勤務表と公開APIは、表示・計算に必要な日付範囲の例外だけをD1から取得します。
 範囲より前の周期補正は、非ゼロの補正に限定したインデックスから合計値だけを取得します。
 編集画面も日付を選択した時点で該当する1行だけを取得し、例外履歴の全件読み込みはしません。
+祝日も表示範囲または指定年だけを日付インデックスから取得します。

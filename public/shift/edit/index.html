@@ -70,6 +70,18 @@
       </form>
     </section>
 
+    <section class="editor-card">
+      <h2>日本の祝日</h2>
+      <p class="small-note">
+        Cloudflareが毎月、e-Govデータポータル経由で内閣府の公式CSVを確認します。
+        公式未公表の年だけ暫定計算を使用します。
+      </p>
+      <div id="holidaySyncStatus" class="holiday-sync-status">同期状態を確認しています…</div>
+      <div class="form-actions holiday-sync-actions">
+        <button type="button" id="syncHolidays">いま公式データを確認</button>
+      </div>
+    </section>
+
     <footer class="site-footer">
       <a class="footer-link" href="../">← 勤務表へ戻る</a>
       <div class="theme-control">

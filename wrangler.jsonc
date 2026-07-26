@@ -17,6 +17,11 @@
   "vars": {
     "ADMIN_ENABLED": "true"
   },
+  "triggers": {
+    "crons": [
+      "0 3 3 * *"
+    ]
+  },
   "routes": [
     {
       "pattern": "mirachan.net",
