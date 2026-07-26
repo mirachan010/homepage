@@ -1,0 +1,88 @@
+{
+  "title": "みら勤務表",
+  "patterns": {
+    "continuous3": {
+      "type": "cycle",
+      "label": "連操3日単位",
+      "patternBlocks": [
+        {
+          "mode": "night",
+          "status": "rest",
+          "days": 3
+        },
+        {
+          "mode": "night",
+          "status": "work",
+          "days": 3
+        },
+        {
+          "mode": "night",
+          "status": "rest",
+          "days": 3
+        },
+        {
+          "mode": "night",
+          "status": "work",
+          "days": 3
+        },
+        {
+          "mode": "day",
+          "status": "rest",
+          "days": 3
+        },
+        {
+          "mode": "day",
+          "status": "work",
+          "days": 3
+        },
+        {
+          "mode": "day",
+          "status": "rest",
+          "days": 3
+        },
+        {
+          "mode": "day",
+          "status": "work",
+          "days": 3
+        }
+      ]
+    },
+    "weekday": {
+      "type": "weekday",
+      "label": "平常勤務",
+      "mode": "day",
+      "workdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "periods": [
+    {
+      "from": "2026-07-26",
+      "pattern": "continuous3",
+      "baseDate": "2026-07-26"
+    }
+  ],
+  "examples": {
+    "normal_then_cycle_again": [
+      {
+        "from": "2026-07-26",
+        "pattern": "continuous3",
+        "baseDate": "2026-07-26"
+      },
+      {
+        "from": "2026-10-01",
+        "pattern": "weekday"
+      },
+      {
+        "from": "2027-01-01",
+        "pattern": "continuous3",
+        "baseDate": "2027-01-01"
+      }
+    ]
+  }
+}

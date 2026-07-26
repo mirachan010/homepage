@@ -1,0 +1,401 @@
+/* shift page only */
+.current-status {
+  margin: 12px 0;
+  padding: 8px;
+  border: 1px solid var(--site-border);
+  background: var(--site-panel);
+  display: inline-block;
+}
+
+.month-nav {
+  width: 100%;
+  max-width: 780px;
+  margin: 12px 0;
+  display: grid;
+  grid-template-columns: auto minmax(8em, 1fr) auto;
+  align-items: center;
+  gap: clamp(6px, 2vw, 12px);
+}
+
+.month-nav button {
+  min-width: clamp(40px, 14vw, 72px);
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+#monthTitle {
+  text-align: center;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.nav-short {
+  display: none;
+}
+
+table {
+  width: 100%;
+  max-width: 780px;
+  border-collapse: collapse;
+  background: var(--site-panel);
+  table-layout: fixed;
+}
+
+th,
+td {
+  border: 1px solid var(--site-border);
+  vertical-align: top;
+  padding: clamp(2px, 0.8vw, 4px);
+}
+
+th {
+  height: clamp(18px, 4vw, 24px);
+  line-height: 1.1;
+  background: var(--calendar-head);
+  text-align: center;
+  font-size: clamp(11px, 2.5vw, 14px);
+}
+
+td {
+  height: clamp(82px, 14vw, 112px);
+}
+
+td.day-mode {
+  background: var(--calendar-day);
+}
+
+td.night-mode {
+  background: var(--calendar-night);
+}
+
+td.other-month {
+  background: var(--calendar-other);
+  color: var(--muted-text);
+}
+
+td.today {
+  box-shadow: 0 0 0 3px var(--calendar-today) inset;
+}
+
+.day-number {
+  font-weight: bold;
+  font-size: clamp(12px, 2.7vw, 16px);
+}
+
+.mode-label {
+  font-size: clamp(10px, 2.2vw, 12px);
+}
+
+.work {
+  color: var(--work-color);
+  font-weight: bold;
+}
+
+.rest {
+  color: var(--rest-color);
+  font-weight: bold;
+}
+
+.date-note,
+.date-memo,
+.date-holiday-name {
+  margin-top: 2px;
+  padding: 1px 3px;
+  border-radius: 4px;
+  font-size: clamp(10px, 2vw, 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  max-width: 100%;
+}
+
+.date-note {
+  background: var(--note-bg);
+  color: var(--site-text);
+}
+
+.date-memo {
+  background: var(--memo-bg);
+  color: var(--site-text);
+}
+
+.date-holiday-name {
+  background: var(--note-bg);
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.tooltip-badge {
+  position: relative;
+  display: inline-block;
+  margin-top: 2px;
+  margin-right: 2px;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-size: clamp(10px, 2vw, 12px);
+  background: var(--note-bg);
+  font-weight: bold;
+  cursor: help;
+  outline: none;
+}
+
+.note-badge {
+  color: var(--site-text);
+}
+
+.memo-badge {
+  background: var(--memo-bg);
+  color: var(--site-text);
+}
+
+.holiday-badge {
+  color: #dc2626;
+}
+
+.tooltip-badge::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  max-width: 16em;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: normal;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: break-word;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tooltip-badge:hover::after,
+.tooltip-badge:focus::after,
+.tooltip-badge:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-2px);
+}
+
+td.other-month .work,
+td.other-month .rest,
+td.other-month .mode-label,
+td.other-month .date-note,
+td.other-month .date-memo,
+td.other-month .date-holiday-name,
+td.other-month .tooltip-badge {
+  color: var(--muted-text);
+}
+
+.note-label,
+.memo-label,
+.holiday-label {
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--site-border);
+  font-size: 12px;
+}
+
+.note-label {
+  background: var(--note-bg);
+}
+
+.memo-label {
+  background: var(--memo-bg);
+}
+
+.holiday-label {
+  background: var(--note-bg);
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.legend-list {
+  margin-top: 4px;
+}
+
+.legend-box {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 1px solid var(--site-border);
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.legend-box.day-mode {
+  background: var(--calendar-day);
+}
+
+.legend-box.night-mode {
+  background: var(--calendar-night);
+}
+
+.legend-box.other-month {
+  background: var(--calendar-other);
+}
+
+.small-note {
+  font-size: 12px;
+}
+
+.site-footer {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--muted-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.site-footer .footer-link {
+  color: var(--muted-text);
+}
+
+.site-footer .footer-link:hover {
+  color: var(--site-link-hover);
+}
+
+.site-footer .theme-control {
+  margin-left: auto;
+  margin-bottom: 0;
+  text-align: right;
+  font-size: 12px;
+}
+
+.weekday-sat {
+  color: #2563eb;
+}
+
+.weekday-sun {
+  color: #dc2626;
+}
+
+.day-number.date-sat {
+  color: #2563eb;
+}
+
+.day-number.date-sun,
+.day-number.date-holiday {
+  color: #dc2626;
+}
+
+td.other-month .day-number.date-sat {
+  color: #4f7fcf;
+}
+
+td.other-month .day-number.date-sun,
+td.other-month .day-number.date-holiday {
+  color: #cf4f4f;
+}
+
+@media (max-width: 560px) {
+  .page {
+    width: min(100% - 16px, 780px);
+    padding: 12px 0;
+  }
+
+  h1 {
+    font-size: clamp(24px, 8vw, 32px);
+  }
+
+  .current-status {
+    display: block;
+  }
+
+  .month-nav {
+    grid-template-columns: 42px 1fr 42px;
+    gap: 6px;
+  }
+
+  .month-nav button {
+    min-width: 42px;
+    min-height: 34px;
+    padding: 2px 0;
+  }
+
+  .nav-full {
+    display: none;
+  }
+
+  .nav-short {
+    display: inline;
+  }
+
+  td {
+    height: clamp(70px, 17vw, 90px);
+    text-align: center;
+  }
+
+  .work,
+  .rest {
+    font-size: clamp(12px, 3vw, 14px);
+  }
+
+  .date-note,
+  .date-memo,
+  .date-holiday-name,
+  .tooltip-badge {
+    font-size: 10px;
+    padding: 0 2px;
+  }
+
+  .tooltip-badge::after {
+    max-width: 12em;
+  }
+
+  .site-footer {
+    margin-top: 14px;
+    align-items: flex-end;
+    font-size: 11px;
+  }
+
+  .site-footer .theme-control {
+    text-align: right;
+  }
+}
+
+@media (max-width: 380px) {
+  .page {
+    width: min(100% - 10px, 780px);
+  }
+
+  th,
+  td {
+    padding: 1px;
+  }
+
+  td {
+    height: 68px;
+  }
+
+  .day-number {
+    font-size: 12px;
+  }
+
+  .mode-label,
+  .work,
+  .rest {
+    font-size: 11px;
+  }
+
+  .date-note,
+  .date-memo,
+  .date-holiday-name {
+    display: block;
+    max-height: 1.2em;
+  }
+
+  .tooltip-badge {
+    display: inline-block;
+  }
+}

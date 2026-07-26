@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=yes">
+  <meta name="description" content="みら勤務表">
+  <title>みら勤務表</title>
+  <link rel="stylesheet" href="../main.css">
+  <link rel="stylesheet" href="shift.css">
+  <script src="../theme.js" defer></script>
+  <script src="schedule.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <h1 id="pageTitle">みら勤務表</h1>
+    <p id="loadError" class="hidden"></p>
+    <div id="currentStatus" class="current-status">読み込み中...</div>
+
+    <div class="month-nav" aria-label="月移動">
+      <button type="button" id="prevBtn">
+        <span class="nav-full">←前月</span>
+        <span class="nav-short">←</span>
+      </button>
+      <strong id="monthTitle"></strong>
+      <button type="button" id="nextBtn">
+        <span class="nav-full">次月→</span>
+        <span class="nav-short">→</span>
+      </button>
+    </div>
+
+    <table id="calendar" aria-label="勤務カレンダー">
+      <thead>
+        <tr>
+          <th>月</th>
+          <th>火</th>
+          <th>水</th>
+          <th>木</th>
+          <th>金</th>
+          <th class="weekday-sat">土</th>
+          <th class="weekday-sun">日</th>
+        </tr>
+      </thead>
+      <tbody id="calendarBody"></tbody>
+    </table>
+
+    <h2>凡例</h2>
+    <ul class="legend-list">
+      <li><span class="legend-box night-mode"></span>夜モード</li>
+      <li><span class="legend-box day-mode"></span>昼モード</li>
+      <li><span class="legend-box other-month"></span>前後の月</li>
+      <li><span class="work">仕事</span></li>
+      <li><span class="rest">休み</span></li>
+      <li><span class="note-label">note</span> 勤務変更理由</li>
+      <li><span class="memo-label">memo</span> 任意メモ</li>
+      <li><span class="holiday-label">祝</span> 祝日名</li>
+    </ul>
+
+    <p class="small-note">
+      普段触るのは exceptions.json が中心です。holidays.json はGitHub Actionsで生成します。
+    </p>
+
+    <footer class="site-footer">
+      <a class="footer-link" href="../">← みらちゃんどっとねっと</a>
+
+      <div class="theme-control">
+        <button type="button" id="themeToggle">テーマ切替</button>
+        <span id="themeLabel"></span>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>
