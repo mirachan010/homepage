@@ -3,6 +3,8 @@
 	"name": "mirachan-homepage",
 	"main": "worker/index.js",
 	"compatibility_date": "2026-07-26",
+  "workers_dev": true,
+  "preview_urls": true,
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
@@ -15,6 +17,12 @@
   "vars": {
     "ADMIN_ENABLED": "true"
   },
+  "routes": [
+    {
+      "pattern": "mirachan.net",
+      "custom_domain": true
+    }
+  ],
 	"d1_databases": [
 		{
 			"binding": "DB",
