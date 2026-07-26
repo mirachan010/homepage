@@ -3,6 +3,7 @@ const compactMedia = window.matchMedia(COMPACT_QUERY);
 
 let config = null;
 let currentMonth = new Date();
+const loadedHolidayYears = new Set();
 
 window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("prevBtn").addEventListener("click", showPreviousMonth);
@@ -19,19 +20,39 @@ window.addEventListener("DOMContentLoaded", () => {
 
 async function loadConfig() {
   try {
-    const [settings, exceptions, holidays] = await Promise.all([
-      fetchJson("settings.json", {}),
-      fetchJson("exceptions.json", {}),
-      fetchJson("holidays.json", {})
+    const scheduleData = await fetchScheduleData();
+    const currentYear = new Date().getFullYear();
+    const holidays = JapaneseHolidays.getHolidayMapForYears([
+      currentYear - 1,
+      currentYear,
+      currentYear + 1
     ]);
+    loadedHolidayYears.add(currentYear - 1);
+    loadedHolidayYears.add(currentYear);
+    loadedHolidayYears.add(currentYear + 1);
 
-    config = { settings, exceptions, holidays };
-    document.getElementById("pageTitle").textContent = settings.title || "みら勤務表";
+    config = { ...scheduleData, holidays };
+    document.getElementById("pageTitle").textContent = config.settings.title || "みら勤務表";
     validateConfig(config);
     renderCalendar();
   } catch (error) {
     showLoadError(error);
   }
+}
+
+async function fetchScheduleData() {
+  try {
+    const response = await fetch("/api/schedule", { cache: "no-store" });
+    if (response.ok) return response.json();
+  } catch {
+    // GitHub Pagesや単純なローカルサーバーではJSONへ戻す。
+  }
+
+  const [settings, exceptions] = await Promise.all([
+    fetchJson("settings.json", {}),
+    fetchJson("exceptions.json", {})
+  ]);
+  return { settings, exceptions };
 }
 
 async function fetchJson(path, fallback) {
@@ -229,6 +250,7 @@ function calculateManualSchedule(date, period) {
 
 function renderCalendar() {
   const year = currentMonth.getFullYear();
+  ensureHolidayYears(year);
   const month = currentMonth.getMonth();
   const firstDate = new Date(year, month, 1);
   const lastDate = new Date(year, month + 1, 0);
@@ -260,6 +282,14 @@ function renderCalendar() {
 
   calendarBody.appendChild(row);
   updateCurrentStatus();
+}
+
+function ensureHolidayYears(year) {
+  for (const targetYear of [year - 1, year, year + 1]) {
+    if (loadedHolidayYears.has(targetYear)) continue;
+    Object.assign(config.holidays, JapaneseHolidays.getHolidayMapForYears([targetYear]));
+    loadedHolidayYears.add(targetYear);
+  }
 }
 
 function createDayCell(date, isCurrentMonth) {

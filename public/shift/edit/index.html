@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="みら勤務表の編集">
+  <title>勤務表を編集</title>
+  <link rel="stylesheet" href="../../main.css">
+  <link rel="stylesheet" href="../shift.css">
+  <link rel="stylesheet" href="edit.css">
+  <script src="../../theme.js" defer></script>
+  <script src="edit.js" defer></script>
+</head>
+<body>
+  <main class="page editor-page">
+    <h1>勤務表を編集</h1>
+    <p class="editor-intro">保存すると勤務表へすぐ反映されます。過去の基準日は上書きせず、履歴として追加します。</p>
+    <p id="message" class="editor-message hidden" role="status"></p>
+
+    <section class="editor-card">
+      <h2>日ごとの変更</h2>
+      <form id="exceptionForm">
+        <label>日付<input type="date" name="scheduleDate" required></label>
+        <label>昼・夜
+          <select name="mode">
+            <option value="">通常どおり</option>
+            <option value="day">昼</option>
+            <option value="night">夜</option>
+          </select>
+        </label>
+        <label>仕事・休み
+          <select name="status">
+            <option value="">通常どおり</option>
+            <option value="work">仕事</option>
+            <option value="rest">休み</option>
+          </select>
+        </label>
+        <label>周期のずれ<input type="number" name="shift" value="0" min="-31" max="31" step="1"></label>
+        <label class="wide">変更理由<input type="text" name="note" maxlength="120"></label>
+        <label class="wide">メモ<input type="text" name="memo" maxlength="240"></label>
+        <div class="form-actions wide">
+          <button type="submit">保存</button>
+          <button type="button" id="deleteException" class="danger-button">この日の変更を削除</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="editor-card">
+      <h2>基準日・勤務パターンの変更</h2>
+      <form id="periodForm">
+        <label>適用開始日<input type="date" name="validFrom" required></label>
+        <label>勤務パターン<select name="patternName" id="patternSelect" required></select></label>
+        <label>基準日<input type="date" name="baseDate"></label>
+        <label class="wide">変更理由<input type="text" name="note" maxlength="240"></label>
+        <div class="form-actions wide"><button type="submit">新しい履歴を追加</button></div>
+      </form>
+      <div id="periodHistory" class="history-list"></div>
+    </section>
+
+    <section class="editor-card">
+      <h2>勤務パターン</h2>
+      <p class="small-note">並び順どおりに「昼/夜・仕事/休み・日数」を入力します。</p>
+      <form id="patternForm">
+        <label>識別名<input type="text" name="name" pattern="[a-zA-Z0-9_-]+" required></label>
+        <label>表示名<input type="text" name="label" required></label>
+        <label class="wide">パターンのブロック
+          <textarea name="blocks" rows="7" required placeholder="night,rest,3&#10;night,work,3&#10;day,rest,3&#10;day,work,3"></textarea>
+        </label>
+        <div class="form-actions wide"><button type="submit">パターンを保存</button></div>
+      </form>
+    </section>
+
+    <footer class="site-footer">
+      <a class="footer-link" href="../">← 勤務表へ戻る</a>
+      <div class="theme-control">
+        <button type="button" id="themeToggle">テーマ切替</button>
+        <span id="themeLabel"></span>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>
