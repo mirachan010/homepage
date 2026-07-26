@@ -49,11 +49,20 @@ async function route(request, env) {
   }
 
   if (url.pathname === "/api/schedule" && request.method === "GET") {
-    return getScheduleData(env.DB);
+    const { from, to } = readScheduleRange(url.searchParams);
+    return getScheduleData(env.DB, from, to);
   }
 
   if (url.pathname.startsWith("/api/admin/") && env.ADMIN_ENABLED !== "true") {
     return json({ error: "Admin is disabled" }, 404);
+  }
+
+  if (url.pathname === "/api/admin/config" && request.method === "GET") {
+    return getAdminConfig(env.DB);
+  }
+
+  if (url.pathname.startsWith("/api/admin/exceptions/") && request.method === "GET") {
+    return getAdminException(url.pathname.split("/").pop(), env.DB);
   }
 
   if (url.pathname === "/api/admin/patterns" && request.method === "POST") {
@@ -107,18 +116,20 @@ async function routePublicApi(request, url, db) {
     const year = readInteger(url.searchParams, "year", 1949, 2099);
     result = { year, holidays: getHolidayList(year) };
   } else {
-    const data = await loadCalculationData(db);
     const todayKey = getTodayInTokyo();
 
     if (url.pathname === "/api/v1/today") {
+      const data = await loadCalculationData(db, todayKey, todayKey);
       result = { timezone: "Asia/Tokyo", schedule: calculateSchedule(todayKey, data) };
     } else if (url.pathname === "/api/v1/next-rest") {
+      const data = await loadCalculationData(db, todayKey, addDays(todayKey, 366));
       result = {
         timezone: "Asia/Tokyo",
         from: todayKey,
         schedule: findNextStatus(todayKey, "rest", data)
       };
     } else if (url.pathname === "/api/v1/status") {
+      const data = await loadCalculationData(db, todayKey, addDays(todayKey, 366));
       result = {
         timezone: "Asia/Tokyo",
         today: calculateSchedule(todayKey, data),
@@ -128,6 +139,9 @@ async function routePublicApi(request, url, db) {
     } else if (url.pathname === "/api/v1/month") {
       const year = readInteger(url.searchParams, "year", 2000, 2099);
       const month = readInteger(url.searchParams, "month", 1, 12);
+      const from = `${year}-${String(month).padStart(2, "0")}-01`;
+      const to = monthEnd(year, month);
+      const data = await loadCalculationData(db, from, to);
       result = {
         timezone: "Asia/Tokyo",
         year,
@@ -142,19 +156,39 @@ async function routePublicApi(request, url, db) {
   return publicJson(result, 200, request.method === "HEAD");
 }
 
-async function loadCalculationData(db) {
-  const [patternsResult, periodsResult, exceptionsResult] = await db.batch([
+async function loadCalculationData(db, from, to) {
+  const [patternsResult, periodsResult, exceptionsResult, shiftResult] = await db.batch([
     db.prepare("SELECT name, definition_json FROM schedule_patterns ORDER BY name"),
     db.prepare(`
       SELECT id, valid_from, pattern_name, base_date
       FROM schedule_periods
+      WHERE id = COALESCE(
+        (
+          SELECT id FROM schedule_periods
+          WHERE valid_from <= ?
+          ORDER BY valid_from DESC, id DESC
+          LIMIT 1
+        ),
+        (
+          SELECT id FROM schedule_periods
+          ORDER BY valid_from, id
+          LIMIT 1
+        )
+      )
+      OR (valid_from > ? AND valid_from <= ?)
       ORDER BY valid_from, id
-    `),
+    `).bind(from, from, to),
     db.prepare(`
       SELECT schedule_date, mode, status, cycle_shift
       FROM schedule_exceptions
+      WHERE schedule_date BETWEEN ? AND ?
       ORDER BY schedule_date
-    `)
+    `).bind(from, to),
+    db.prepare(`
+      SELECT COALESCE(SUM(cycle_shift), 0) AS total
+      FROM schedule_exceptions
+      WHERE cycle_shift != 0 AND schedule_date < ?
+    `).bind(from)
   ]);
 
   const patterns = Object.fromEntries(patternsResult.results.map(row => [
@@ -176,22 +210,47 @@ async function loadCalculationData(db) {
     })
   ]));
 
-  return { patterns, periods, exceptions };
+  return {
+    patterns,
+    periods,
+    exceptions,
+    baseCycleShift: Number(shiftResult.results[0]?.total || 0)
+  };
 }
 
-async function getScheduleData(db) {
-  const [patternsResult, periodsResult, exceptionsResult] = await db.batch([
+async function getScheduleData(db, from, to) {
+  const [patternsResult, periodsResult, exceptionsResult, shiftResult] = await db.batch([
     db.prepare("SELECT name, label, definition_json FROM schedule_patterns ORDER BY name"),
     db.prepare(`
       SELECT id, valid_from, pattern_name, base_date, note, created_at
       FROM schedule_periods
+      WHERE id = COALESCE(
+        (
+          SELECT id FROM schedule_periods
+          WHERE valid_from <= ?
+          ORDER BY valid_from DESC, id DESC
+          LIMIT 1
+        ),
+        (
+          SELECT id FROM schedule_periods
+          ORDER BY valid_from, id
+          LIMIT 1
+        )
+      )
+      OR (valid_from > ? AND valid_from <= ?)
       ORDER BY valid_from, id
-    `),
+    `).bind(from, from, to),
     db.prepare(`
       SELECT schedule_date, mode, status, cycle_shift, note, memo, updated_at
       FROM schedule_exceptions
+      WHERE schedule_date BETWEEN ? AND ?
       ORDER BY schedule_date
-    `)
+    `).bind(from, to),
+    db.prepare(`
+      SELECT COALESCE(SUM(cycle_shift), 0) AS total
+      FROM schedule_exceptions
+      WHERE cycle_shift != 0 AND schedule_date < ?
+    `).bind(from)
   ]);
 
   const patterns = {};
@@ -224,8 +283,62 @@ async function getScheduleData(db) {
   }
 
   return json({
-    settings: { title: "みら勤務表", patterns, periods },
-    exceptions
+    settings: {
+      title: "みら勤務表",
+      patterns,
+      periods,
+      baseCycleShift: Number(shiftResult.results[0]?.total || 0)
+    },
+    exceptions,
+    range: { from, to }
+  });
+}
+
+async function getAdminConfig(db) {
+  const [patternsResult, periodsResult] = await db.batch([
+    db.prepare("SELECT name, label, definition_json FROM schedule_patterns ORDER BY name"),
+    db.prepare(`
+      SELECT id, valid_from, pattern_name, base_date, note, created_at
+      FROM schedule_periods
+      ORDER BY valid_from, id
+    `)
+  ]);
+
+  const patterns = Object.fromEntries(patternsResult.results.map(row => [
+    row.name,
+    { ...JSON.parse(row.definition_json), label: row.label }
+  ]));
+  const periods = periodsResult.results.map(row => ({
+    id: row.id,
+    from: row.valid_from,
+    pattern: row.pattern_name,
+    baseDate: row.base_date,
+    note: row.note,
+    createdAt: row.created_at
+  }));
+  return json({ settings: { title: "みら勤務表", patterns, periods } });
+}
+
+async function getAdminException(date, db) {
+  requireDate(date, "date");
+  const row = await db.prepare(`
+    SELECT schedule_date, mode, status, cycle_shift, note, memo, updated_at
+    FROM schedule_exceptions
+    WHERE schedule_date = ?
+    LIMIT 1
+  `).bind(date).first();
+
+  if (!row) return json({ date, exception: null });
+  return json({
+    date,
+    exception: compact({
+      mode: row.mode,
+      status: row.status,
+      shift: row.cycle_shift || undefined,
+      note: row.note || undefined,
+      memo: row.memo || undefined,
+      updatedAt: row.updated_at
+    })
   });
 }
 
@@ -335,6 +448,10 @@ function requireDate(value, name) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     throw new HttpError(400, `${name} は YYYY-MM-DD 形式にしてください`);
   }
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new HttpError(400, `${name} は実在する日付にしてください`);
+  }
 }
 
 function compact(object) {
@@ -372,6 +489,30 @@ function readInteger(searchParams, name, minimum, maximum) {
     throw new HttpError(400, `${name} は ${minimum}〜${maximum} にしてください`);
   }
   return number;
+}
+
+function readScheduleRange(searchParams) {
+  const today = getTodayInTokyo();
+  const from = searchParams.get("from") || addDays(today, -45);
+  const to = searchParams.get("to") || addDays(today, 150);
+  requireDate(from, "from");
+  requireDate(to, "to");
+
+  const days = (new Date(`${to}T00:00:00Z`) - new Date(`${from}T00:00:00Z`)) / 86400000;
+  if (days < 0 || days > 400) {
+    throw new HttpError(400, "取得範囲は400日以内にしてください");
+  }
+  return { from, to };
+}
+
+function addDays(dateKey, days) {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function monthEnd(year, month) {
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
 }
 
 function isPublicApiPath(pathname) {

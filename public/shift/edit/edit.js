@@ -1,4 +1,5 @@
 let scheduleData;
+let exceptionRequestId = 0;
 
 window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("exceptionForm").addEventListener("submit", saveException);
@@ -11,15 +12,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelector('[name="scheduleDate"]').value = today;
   document.querySelector('[name="validFrom"]').value = today;
   document.querySelector('[name="baseDate"]').value = today;
-  await refresh();
+  await refreshConfig();
+  await loadExceptionIntoForm();
 });
 
-async function refresh() {
+async function refreshConfig() {
   try {
-    scheduleData = await api("/api/schedule");
+    scheduleData = await api("/api/admin/config");
     renderPatterns();
     renderHistory();
-    loadExceptionIntoForm();
   } catch (error) {
     showMessage(error.message, true);
   }
@@ -52,15 +53,24 @@ function renderHistory() {
   }
 }
 
-function loadExceptionIntoForm() {
+async function loadExceptionIntoForm() {
   const form = document.getElementById("exceptionForm");
   const date = form.elements.scheduleDate.value;
-  const item = scheduleData?.exceptions?.[date] || {};
-  form.elements.mode.value = item.mode || "";
-  form.elements.status.value = item.status || "";
-  form.elements.shift.value = item.shift || 0;
-  form.elements.note.value = item.note || "";
-  form.elements.memo.value = item.memo || "";
+  if (!date) return;
+  const requestId = ++exceptionRequestId;
+
+  try {
+    const result = await api(`/api/admin/exceptions/${encodeURIComponent(date)}`);
+    if (requestId !== exceptionRequestId) return;
+    const item = result.exception || {};
+    form.elements.mode.value = item.mode || "";
+    form.elements.status.value = item.status || "";
+    form.elements.shift.value = item.shift || 0;
+    form.elements.note.value = item.note || "";
+    form.elements.memo.value = item.memo || "";
+  } catch (error) {
+    if (requestId === exceptionRequestId) showMessage(error.message, true);
+  }
 }
 
 async function saveException(event) {
@@ -78,7 +88,7 @@ async function saveException(event) {
         memo: form.elements.memo.value.trim()
       })
     });
-    await refresh();
+    await loadExceptionIntoForm();
   }, "日ごとの変更を保存しました");
 }
 
@@ -88,7 +98,7 @@ async function deleteException() {
 
   await perform(async () => {
     await api(`/api/admin/exceptions/${encodeURIComponent(date)}`, { method: "DELETE" });
-    await refresh();
+    await loadExceptionIntoForm();
   }, "日ごとの変更を削除しました");
 }
 
@@ -106,7 +116,7 @@ async function addPeriod(event) {
       })
     });
     form.elements.note.value = "";
-    await refresh();
+    await refreshConfig();
   }, "新しい設定履歴を追加しました");
 }
 
@@ -124,7 +134,7 @@ async function savePattern(event) {
         definition: { type: "cycle", patternBlocks }
       })
     });
-    await refresh();
+    await refreshConfig();
   }, "勤務パターンを保存しました");
 }
 

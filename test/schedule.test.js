@@ -54,6 +54,15 @@ test("月間勤務表と次の休みを計算する", () => {
   assert.equal(nextRest.daysUntil, 2);
 });
 
+test("取得範囲より前の周期補正を合計値から引き継ぐ", () => {
+  const scopedData = {
+    ...data,
+    baseCycleShift: 1,
+    exceptions: {}
+  };
+  assert.equal(calculateSchedule("2026-01-02", scopedData).status, "work");
+});
+
 test("祝日一覧と日本時間の日付を返す", () => {
   const holidays = getHolidayList(2026);
   assert.deepEqual(

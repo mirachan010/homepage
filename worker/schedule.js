@@ -85,7 +85,7 @@ function resolvePeriod(dateKey, data) {
   const pattern = data.patterns[active.pattern];
   if (!pattern) throw new Error(`勤務パターン ${active.pattern} が見つかりません`);
 
-  return { ...pattern, ...active };
+  return { ...pattern, ...active, baseCycleShift: data.baseCycleShift || 0 };
 }
 
 function calculateWeekday(dateKey, period) {
@@ -109,7 +109,7 @@ function calculateCycle(dateKey, period, exceptions) {
   if (pattern.length === 0) throw new Error("周期パターンが空です");
 
   const baseDate = period.baseDate || period.from;
-  const shift = Object.entries(exceptions)
+  const shift = Number(period.baseCycleShift || 0) + Object.entries(exceptions)
     .filter(([exceptionDate, item]) =>
       exceptionDate <= dateKey && Number.isInteger(item.shift)
     )

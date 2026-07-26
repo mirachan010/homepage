@@ -3,6 +3,7 @@ const compactMedia = window.matchMedia(COMPACT_QUERY);
 
 let config = null;
 let currentMonth = new Date();
+let currentStatusData = null;
 const loadedHolidayYears = new Set();
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -20,7 +21,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
 async function loadConfig() {
   try {
-    const scheduleData = await fetchScheduleData();
+    const [scheduleData, statusData] = await Promise.all([
+      fetchScheduleData(currentMonth),
+      fetchPublicStatus()
+    ]);
     const currentYear = new Date().getFullYear();
     const holidays = JapaneseHolidays.getHolidayMapForYears([
       currentYear - 1,
@@ -32,6 +36,7 @@ async function loadConfig() {
     loadedHolidayYears.add(currentYear + 1);
 
     config = { ...scheduleData, holidays };
+    currentStatusData = statusData;
     document.getElementById("pageTitle").textContent = config.settings.title || "みら勤務表";
     validateConfig(config);
     renderCalendar();
@@ -40,9 +45,11 @@ async function loadConfig() {
   }
 }
 
-async function fetchScheduleData() {
+async function fetchScheduleData(month) {
+  const range = getCalendarRange(month);
   try {
-    const response = await fetch("/api/schedule", { cache: "no-store" });
+    const params = new URLSearchParams({ from: range.from, to: range.to });
+    const response = await fetch(`/api/schedule?${params}`, { cache: "no-store" });
     if (response.ok) return response.json();
   } catch {
     // GitHub Pagesや単純なローカルサーバーではJSONへ戻す。
@@ -53,6 +60,26 @@ async function fetchScheduleData() {
     fetchJson("exceptions.json", {})
   ]);
   return { settings, exceptions };
+}
+
+async function fetchPublicStatus() {
+  try {
+    const response = await fetch("/api/v1/status");
+    if (response.ok) return response.json();
+  } catch {
+    // 静的配信時は取得済み設定から計算する。
+  }
+  return null;
+}
+
+function getCalendarRange(month) {
+  const firstDate = new Date(month.getFullYear(), month.getMonth(), 1);
+  const lastDate = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+  const from = new Date(firstDate);
+  const to = new Date(lastDate);
+  from.setDate(from.getDate() - getMondayBasedWeekday(from));
+  to.setDate(to.getDate() + (6 - getMondayBasedWeekday(to)));
+  return { from: formatDateKey(from), to: formatDateKey(to) };
 }
 
 async function fetchJson(path, fallback) {
@@ -165,7 +192,7 @@ function expandPatternBlocks(blocks) {
 }
 
 function getCycleShiftOffset(date) {
-  let offset = 0;
+  let offset = Number(config.settings.baseCycleShift || 0);
   const targetKey = formatDateKey(date);
 
   for (const [dateKey, item] of Object.entries(config.exceptions || {})) {
@@ -415,6 +442,15 @@ function isToday(date) {
 }
 
 function updateCurrentStatus() {
+  if (currentStatusData) {
+    const today = currentStatusData.today;
+    document.getElementById("currentStatus").innerHTML =
+      `現在: ${getFullModeText(today.mode)} / ${getFullStatusText(today.status)}<br>`
+      + `次の仕事: ${formatDisplayDateKey(currentStatusData.nextWork?.date)}<br>`
+      + `次の休み: ${formatDisplayDateKey(currentStatusData.nextRest?.date)}`;
+    return;
+  }
+
   const today = getSchedule(new Date());
   const nextWork = findNextDateByStatus("work");
   const nextRest = findNextDateByStatus("rest");
@@ -444,6 +480,12 @@ function formatDisplayDate(date) {
   return date ? `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}` : "不明";
 }
 
+function formatDisplayDateKey(dateKey) {
+  if (!dateKey) return "不明";
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return `${year}/${month}/${day}`;
+}
+
 function escapeHtml(text) {
   return String(text).replace(/[&<>'"]/g, char => ({
     "&": "&amp;",
@@ -454,12 +496,28 @@ function escapeHtml(text) {
   }[char]));
 }
 
-function showPreviousMonth() {
-  currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-  renderCalendar();
+async function showPreviousMonth() {
+  await changeMonth(-1);
 }
 
-function showNextMonth() {
-  currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-  renderCalendar();
+async function showNextMonth() {
+  await changeMonth(1);
+}
+
+async function changeMonth(offset) {
+  const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
+  const buttons = [document.getElementById("prevBtn"), document.getElementById("nextBtn")];
+  buttons.forEach(button => { button.disabled = true; });
+
+  try {
+    const scheduleData = await fetchScheduleData(nextMonth);
+    config = { ...scheduleData, holidays: config.holidays };
+    validateConfig(config);
+    currentMonth = nextMonth;
+    renderCalendar();
+  } catch (error) {
+    showLoadError(error);
+  } finally {
+    buttons.forEach(button => { button.disabled = false; });
+  }
 }
