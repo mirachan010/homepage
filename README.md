@@ -37,12 +37,31 @@ npm run dev
    - `mirachan.net/api/admin/*`
 8. Accessの保護を確認後、`wrangler.jsonc` の `ADMIN_ENABLED` を `true` にして再デプロイ
 
-現在の `workers.dev` 環境では、次のパスをCloudflare Accessで保護済みです。
+現在は、次のパスをCloudflare Accessで保護済みです。
 
+- `mirachan.net/shift/edit/*`
+- `mirachan.net/api/admin/*`
 - `mirachan-homepage.mirachan010.workers.dev/shift/edit/*`
 - `mirachan-homepage.mirachan010.workers.dev/api/admin/*`
 
-許可ポリシーは `mirachan010@gmail.com` のみです。カスタムドメインを追加する際も、
-同じ2つのパスをAccessへ追加してからWorkerへ接続します。
+許可ポリシーは `mirachan010@gmail.com` のみです。
 
 認証情報やAPIトークンはリポジトリへ保存しません。
+
+## 公開API
+
+外部サービスから利用する読み取り専用APIです。すべて日本時間を基準にし、
+個人的なメモ、変更理由、DBの内部情報は返しません。
+
+| パス | 内容 |
+| --- | --- |
+| `/api/v1/` | API一覧 |
+| `/api/v1/status` | 今日・次の仕事・次の休み |
+| `/api/v1/today` | 今日の勤務状態 |
+| `/api/v1/next-rest` | 次の休み |
+| `/api/v1/month?year=2026&month=8` | 指定月の勤務表 |
+| `/api/v1/holidays?year=2026` | 指定年の日本の祝日 |
+
+公開APIは `GET` と `HEAD` に対応し、ブラウザ等から利用できるよう
+`Access-Control-Allow-Origin: *` を返します。仕様変更が必要になった場合は
+`/api/v2/` を追加し、`v1` の応答形式は維持します。
