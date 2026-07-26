@@ -62,9 +62,9 @@
   },
   "periods": [
     {
-      "from": "2026-07-26",
+      "from": "2026-04-24",
       "pattern": "continuous3",
-      "baseDate": "2026-07-26"
+      "baseDate": "2026-04-24"
     }
   ],
   "examples": {
