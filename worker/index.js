@@ -1,5 +1,6 @@
 import {
   calculateMonth,
+  calculateRange,
   calculateSchedule,
   findNextStatus,
   getHolidayList,
@@ -131,6 +132,7 @@ async function routePublicApi(request, url, db) {
         "/api/v1/status",
         "/api/v1/today",
         "/api/v1/next-rest",
+        "/api/v1/schedule?from=2026-07-28&days=14",
         "/api/v1/month?year=2026&month=8",
         "/api/v1/holidays?year=2026"
       ]
@@ -138,6 +140,17 @@ async function routePublicApi(request, url, db) {
   } else if (url.pathname === "/api/v1/holidays") {
     const year = readInteger(url.searchParams, "year", 1949, 2099);
     result = await getHolidayYearData(db, year);
+  } else if (url.pathname === "/api/v1/schedule") {
+    const from = url.searchParams.get("from");
+    requireDate(from, "from");
+    const days = readInteger(url.searchParams, "days", 1, 400);
+    const to = addDays(from, days - 1);
+    const data = await loadCalculationData(db, from, to);
+    result = {
+      timezone: "Asia/Tokyo",
+      range: { from, to, days },
+      days: calculateRange(from, days, data)
+    };
   } else {
     const todayKey = getTodayInTokyo();
 
@@ -202,7 +215,7 @@ async function loadCalculationData(db, from, to) {
       ORDER BY valid_from, id
     `).bind(from, from, to),
     db.prepare(`
-      SELECT schedule_date, mode, status, cycle_shift
+      SELECT schedule_date, mode, status, schedule_type, cycle_shift, note, memo
       FROM schedule_exceptions
       WHERE schedule_date BETWEEN ? AND ?
       ORDER BY schedule_date
@@ -235,7 +248,10 @@ async function loadCalculationData(db, from, to) {
     compact({
       mode: row.mode,
       status: row.status,
-      shift: row.cycle_shift || undefined
+      type: row.schedule_type,
+      shift: row.cycle_shift || undefined,
+      note: row.note || undefined,
+      memo: row.memo || undefined
     })
   ]));
   const holidays = Object.fromEntries(holidaysResult.results.map(row => [
@@ -282,7 +298,7 @@ async function getScheduleData(db, from, to) {
       ORDER BY valid_from, id
     `).bind(from, from, to),
     db.prepare(`
-      SELECT schedule_date, mode, status, cycle_shift, note, memo, updated_at
+      SELECT schedule_date, mode, status, schedule_type, cycle_shift, note, memo, updated_at
       FROM schedule_exceptions
       WHERE schedule_date BETWEEN ? AND ?
       ORDER BY schedule_date
@@ -331,6 +347,7 @@ async function getScheduleData(db, from, to) {
     exceptions[row.schedule_date] = compact({
       mode: row.mode,
       status: row.status,
+      type: row.schedule_type,
       shift: row.cycle_shift || undefined,
       note: row.note || undefined,
       memo: row.memo || undefined,
@@ -426,7 +443,7 @@ async function getAdminConfig(db) {
 async function getAdminException(date, db) {
   requireDate(date, "date");
   const row = await db.prepare(`
-    SELECT schedule_date, mode, status, cycle_shift, note, memo, updated_at
+    SELECT schedule_date, mode, status, schedule_type, cycle_shift, note, memo, updated_at
     FROM schedule_exceptions
     WHERE schedule_date = ?
     LIMIT 1
@@ -438,6 +455,7 @@ async function getAdminException(date, db) {
     exception: compact({
       mode: row.mode,
       status: row.status,
+      type: row.schedule_type,
       shift: row.cycle_shift || undefined,
       note: row.note || undefined,
       memo: row.memo || undefined,
@@ -497,19 +515,27 @@ async function saveException(request, db) {
   if (body.status && !["work", "rest"].includes(body.status)) {
     throw new HttpError(400, "status が不正です");
   }
+  if (body.type && !["paid_leave", "holiday_work"].includes(body.type)) {
+    throw new HttpError(400, "type が不正です");
+  }
 
   const shift = Number(body.shift || 0);
   if (!Number.isInteger(shift) || shift < -31 || shift > 31) {
     throw new HttpError(400, "shift は -31〜31 の整数にしてください");
   }
 
+  const status = body.type === "paid_leave"
+    ? "rest"
+    : (body.type === "holiday_work" ? "work" : (body.status || null));
+
   await db.prepare(`
     INSERT INTO schedule_exceptions
-      (schedule_date, mode, status, cycle_shift, note, memo)
-    VALUES (?, ?, ?, ?, ?, ?)
+      (schedule_date, mode, status, schedule_type, cycle_shift, note, memo)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(schedule_date) DO UPDATE SET
       mode = excluded.mode,
       status = excluded.status,
+      schedule_type = excluded.schedule_type,
       cycle_shift = excluded.cycle_shift,
       note = excluded.note,
       memo = excluded.memo,
@@ -517,7 +543,8 @@ async function saveException(request, db) {
   `).bind(
     body.scheduleDate,
     body.mode || null,
-    body.status || null,
+    status,
+    body.type || null,
     shift,
     body.note || "",
     body.memo || ""

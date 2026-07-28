@@ -35,6 +35,13 @@
             <option value="rest">休み</option>
           </select>
         </label>
+        <label>勤務種別
+          <select name="type">
+            <option value="">通常どおり</option>
+            <option value="paid_leave">有給</option>
+            <option value="holiday_work">休出</option>
+          </select>
+        </label>
         <label>周期のずれ<input type="number" name="shift" value="0" min="-31" max="31" step="1"></label>
         <label class="wide">変更理由<input type="text" name="note" maxlength="120"></label>
         <label class="wide">メモ<input type="text" name="memo" maxlength="240"></label>

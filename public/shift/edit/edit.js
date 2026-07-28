@@ -8,6 +8,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("patternForm").addEventListener("submit", savePattern);
   document.getElementById("syncHolidays").addEventListener("click", syncHolidays);
   document.querySelector('[name="scheduleDate"]').addEventListener("change", loadExceptionIntoForm);
+  document.querySelector('[name="type"]').addEventListener("change", syncStatusWithType);
 
   const today = formatDate(new Date());
   document.querySelector('[name="scheduleDate"]').value = today;
@@ -66,6 +67,7 @@ async function loadExceptionIntoForm() {
     const item = result.exception || {};
     form.elements.mode.value = item.mode || "";
     form.elements.status.value = item.status || "";
+    form.elements.type.value = item.type || "";
     form.elements.shift.value = item.shift || 0;
     form.elements.note.value = item.note || "";
     form.elements.memo.value = item.memo || "";
@@ -84,6 +86,7 @@ async function saveException(event) {
         scheduleDate: form.elements.scheduleDate.value,
         mode: form.elements.mode.value || null,
         status: form.elements.status.value || null,
+        type: form.elements.type.value || null,
         shift: Number(form.elements.shift.value || 0),
         note: form.elements.note.value.trim(),
         memo: form.elements.memo.value.trim()
@@ -91,6 +94,12 @@ async function saveException(event) {
     });
     await loadExceptionIntoForm();
   }, "日ごとの変更を保存しました");
+}
+
+function syncStatusWithType(event) {
+  const form = event.currentTarget.form;
+  if (event.currentTarget.value === "paid_leave") form.elements.status.value = "rest";
+  if (event.currentTarget.value === "holiday_work") form.elements.status.value = "work";
 }
 
 async function deleteException() {

@@ -5,6 +5,7 @@ import vm from "node:vm";
 
 import {
   calculateMonth,
+  calculateRange,
   calculateSchedule,
   findNextStatus,
   getHolidayList,
@@ -25,11 +26,11 @@ const data = {
     { id: 1, from: "2026-01-01", pattern: "cycle", baseDate: "2026-01-01" }
   ],
   exceptions: {
-    "2026-01-02": { status: "work", shift: 1, note: "非公開", memo: "非公開" }
+    "2026-01-02": { status: "work", shift: 1, note: "変更理由", memo: "公開メモ" }
   }
 };
 
-test("周期と例外から公開勤務状態だけを計算する", () => {
+test("周期と例外から共有する1日分の勤務情報を計算する", () => {
   const schedule = calculateSchedule("2026-01-02", data);
   assert.deepEqual(schedule, {
     date: "2026-01-02",
@@ -38,10 +39,13 @@ test("周期と例外から公開勤務状態だけを計算する", () => {
     modeLabel: "夜",
     status: "work",
     statusLabel: "仕事",
-    holiday: null
+    type: "regular_work",
+    cycleGroup: "work",
+    label: "夜勤",
+    holiday: null,
+    note: "変更理由",
+    memo: "公開メモ"
   });
-  assert.equal("note" in schedule, false);
-  assert.equal("memo" in schedule, false);
 });
 
 test("月間勤務表と次の休みを計算する", () => {
@@ -52,6 +56,37 @@ test("月間勤務表と次の休みを計算する", () => {
   const nextRest = findNextStatus("2026-01-02", "rest", data);
   assert.equal(nextRest.date, "2026-01-04");
   assert.equal(nextRest.daysUntil, 2);
+});
+
+test("有給と休出は表示と周期グループを分ける", () => {
+  const specialData = {
+    ...data,
+    exceptions: {
+      "2026-01-02": { type: "paid_leave" },
+      "2026-01-03": { type: "holiday_work" }
+    }
+  };
+
+  const paidLeave = calculateSchedule("2026-01-02", specialData);
+  assert.equal(paidLeave.status, "rest");
+  assert.equal(paidLeave.type, "paid_leave");
+  assert.equal(paidLeave.cycleGroup, "work");
+  assert.equal(paidLeave.label, "有給");
+
+  const holidayWork = calculateSchedule("2026-01-03", specialData);
+  assert.equal(holidayWork.status, "work");
+  assert.equal(holidayWork.type, "holiday_work");
+  assert.equal(holidayWork.cycleGroup, "rest");
+  assert.equal(holidayWork.label, "休出");
+});
+
+test("指定開始日から必要日数をまとめて計算する", () => {
+  const schedule = calculateRange("2026-01-02", 3, data);
+  assert.deepEqual(schedule.map(day => day.date), [
+    "2026-01-02",
+    "2026-01-03",
+    "2026-01-04"
+  ]);
 });
 
 test("取得範囲より前の周期補正を合計値から引き継ぐ", () => {

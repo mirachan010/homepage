@@ -1,4 +1,16 @@
 const DAY_MS = 86400000;
+const SPECIAL_SCHEDULE_TYPES = {
+  paid_leave: {
+    status: "rest",
+    cycleGroup: "work",
+    label: "有給"
+  },
+  holiday_work: {
+    status: "work",
+    cycleGroup: "rest",
+    label: "休出"
+  }
+};
 
 export function calculateSchedule(dateKey, data) {
   const period = resolvePeriod(dateKey, data);
@@ -14,8 +26,17 @@ export function calculateSchedule(dateKey, data) {
   }
 
   const mode = exception.mode || base.mode || "day";
-  const status = exception.status || base.status || "rest";
+  const specialType = SPECIAL_SCHEDULE_TYPES[exception.type];
+  const status = specialType?.status || exception.status || base.status || "rest";
+  const type = specialType
+    ? exception.type
+    : (status === "work" ? "regular_work" : "regular_rest");
+  const cycleGroup = specialType?.cycleGroup || status;
+  const label = specialType?.label
+    || (status === "work" ? (mode === "night" ? "夜勤" : "昼勤") : "休み");
   const holiday = data.holidays?.[dateKey] || getHolidayName(dateKey);
+  const note = exception.note || base.note || "";
+  const memo = exception.memo || base.memo || "";
 
   return {
     date: dateKey,
@@ -24,7 +45,12 @@ export function calculateSchedule(dateKey, data) {
     modeLabel: mode === "night" ? "夜" : "昼",
     status,
     statusLabel: status === "work" ? "仕事" : "休み",
-    holiday: holiday || null
+    type,
+    cycleGroup,
+    label,
+    holiday: holiday || null,
+    ...(note ? { note } : {}),
+    ...(memo ? { memo } : {})
   };
 }
 
@@ -37,6 +63,18 @@ export function calculateMonth(year, month, data) {
   }
 
   return days;
+}
+
+export function calculateRange(fromDateKey, days, data) {
+  const start = parseDate(fromDateKey);
+  const schedule = [];
+
+  for (let offset = 0; offset < days; offset++) {
+    const date = new Date(start.getTime() + offset * DAY_MS);
+    schedule.push(calculateSchedule(formatDateObject(date), data));
+  }
+
+  return schedule;
 }
 
 export function findNextStatus(startDateKey, status, data, maxDays = 366) {

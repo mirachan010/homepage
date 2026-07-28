@@ -237,10 +237,13 @@ function getSchedule(date) {
   }
 
   const override = config.exceptions[key] || {};
+  const status = override.status || baseSchedule.status;
+  const type = override.type || (status === "work" ? "regular_work" : "regular_rest");
 
   return {
     mode: override.mode || baseSchedule.mode,
-    status: override.status || baseSchedule.status,
+    status,
+    type,
     note: override.note || baseSchedule.note || "",
     memo: override.memo || baseSchedule.memo || "",
     ruleType: period.type,
@@ -339,7 +342,7 @@ function createDayCell(date, isCurrentMonth) {
   applyDateColorClasses(dayNumber, date);
   cell.appendChild(dayNumber);
   cell.appendChild(createDiv("mode-label", getModeText(schedule.mode)));
-  cell.appendChild(createDiv(schedule.status, getStatusText(schedule.status)));
+  cell.appendChild(createDiv(schedule.status, getStatusText(schedule.status, schedule.type)));
 
   appendSmartInfo(cell, {
     text: schedule.note,
@@ -428,7 +431,9 @@ function getModeText(mode) {
   return isCompactView() ? (mode === "day" ? "🌞" : "🌙") : (mode === "day" ? "🌞昼" : "🌙夜");
 }
 
-function getStatusText(status) {
+function getStatusText(status, type) {
+  if (type === "paid_leave") return isCompactView() ? "有" : "有給";
+  if (type === "holiday_work") return isCompactView() ? "出" : "休出";
   return isCompactView() ? (status === "work" ? "仕" : "休") : (status === "work" ? "仕事" : "休み");
 }
 
@@ -436,7 +441,9 @@ function getFullModeText(mode) {
   return mode === "day" ? "🌞昼" : "🌙夜";
 }
 
-function getFullStatusText(status) {
+function getFullStatusText(status, type) {
+  if (type === "paid_leave") return "有給";
+  if (type === "holiday_work") return "休出";
   return status === "work" ? "仕事" : "休み";
 }
 
@@ -451,7 +458,7 @@ function updateCurrentStatus() {
   if (currentStatusData) {
     const today = currentStatusData.today;
     document.getElementById("currentStatus").innerHTML =
-      `現在: ${getFullModeText(today.mode)} / ${getFullStatusText(today.status)}<br>`
+      `現在: ${getFullModeText(today.mode)} / ${getFullStatusText(today.status, today.type)}<br>`
       + `次の仕事: ${formatDisplayDateKey(currentStatusData.nextWork?.date)}<br>`
       + `次の休み: ${formatDisplayDateKey(currentStatusData.nextRest?.date)}`;
     return;
@@ -463,7 +470,7 @@ function updateCurrentStatus() {
   const memoLine = today.memo ? `<br>今日のメモ: ${escapeHtml(today.memo)}` : "";
 
   document.getElementById("currentStatus").innerHTML =
-    `現在: ${getFullModeText(today.mode)} / ${getFullStatusText(today.status)}<br>`
+    `現在: ${getFullModeText(today.mode)} / ${getFullStatusText(today.status, today.type)}<br>`
     + `次の仕事: ${formatDisplayDate(nextWork)}<br>`
     + `次の休み: ${formatDisplayDate(nextRest)}${memoLine}`;
 }
