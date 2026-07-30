@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>勤務表の公開API | mirachan.net</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=yes">
+        <meta name="description" content="mirachan.netの勤務状態、勤務表、日本の祝日を取得できる読み取り専用JSON API">
+
+        <link rel="canonical" href="https://mirachan.net/api-docs/">
+        <link rel="stylesheet" href="../main.css">
+
+        <script src="../theme.js" defer></script>
+    </head>
+    <body>
+        <main class="page simple-page">
+            <h1>勤務表の公開API</h1>
+
+            <p>
+                外部サービスから勤務状態、勤務表、日本の祝日を取得できる
+                読み取り専用のJSON APIです。日付と時刻は日本時間を基準にしています。
+            </p>
+
+            <h2>エンドポイント</h2>
+
+            <ul>
+                <li><a href="../api/v1/">API一覧</a></li>
+                <li><a href="../api/v1/status">今日・次の仕事・次の休み</a></li>
+                <li><a href="../api/v1/today">今日の勤務状態</a></li>
+                <li><a href="../api/v1/next-rest">次の休み</a></li>
+                <li><a href="../api/v1/schedule?from=2026-07-31&amp;days=14">指定日から14日分の勤務表（例）</a></li>
+                <li><a href="../api/v1/month?year=2026&amp;month=8">指定月の勤務表（例）</a></li>
+                <li><a href="../api/v1/holidays?year=2026">指定年の日本の祝日（例）</a></li>
+            </ul>
+
+            <h2>利用方法</h2>
+
+            <p>
+                すべてのエンドポイントは認証不要で、<code>GET</code> と
+                <code>HEAD</code> に対応しています。ブラウザなどの外部サービスから
+                利用できるよう、<code>Access-Control-Allow-Origin: *</code> を返します。
+            </p>
+
+            <footer class="site-footer">
+                <p><a href="../">トップへ戻る</a></p>
+
+                <div class="theme-control">
+                    <button type="button" id="themeToggle">テーマ切替</button>
+                    <span id="themeLabel"></span>
+                </div>
+            </footer>
+        </main>
+    </body>
+</html>
