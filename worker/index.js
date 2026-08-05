@@ -13,6 +13,7 @@ import {
   officialSourceFromSync,
   syncOfficialHolidays
 } from "./holidays.js";
+import { createScheduleCalendar } from "./calendar.js";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -27,6 +28,12 @@ const PUBLIC_API_HEADERS = {
   "access-control-allow-headers": "Accept",
   "access-control-max-age": "86400",
   "x-api-version": "1"
+};
+
+const PUBLIC_CALENDAR_HEADERS = {
+  ...PUBLIC_API_HEADERS,
+  "content-type": "text/calendar; charset=utf-8",
+  "content-disposition": 'inline; filename="mira-work-schedule.ics"'
 };
 
 export default {
@@ -58,6 +65,10 @@ async function route(request, env) {
 
   if (isPublicApiPath(url.pathname)) {
     return routePublicApi(request, url, env.DB);
+  }
+
+  if (url.pathname === "/shift/calendar.ics") {
+    return routePublicCalendar(request, env.DB);
   }
 
   if (url.pathname.startsWith("/shift/edit/") && env.ADMIN_ENABLED !== "true") {
@@ -190,6 +201,26 @@ async function routePublicApi(request, url, db) {
   }
 
   return publicJson(result, 200, request.method === "HEAD");
+}
+
+async function routePublicCalendar(request, db) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: PUBLIC_CALENDAR_HEADERS });
+  }
+
+  if (!["GET", "HEAD"].includes(request.method)) {
+    return publicError("method_not_allowed", "GETのみ利用できます", 405, {
+      allow: "GET, HEAD, OPTIONS"
+    });
+  }
+
+  const today = getTodayInTokyo();
+  const from = addDays(today, -31);
+  const days = 397;
+  const to = addDays(from, days - 1);
+  const data = await loadCalculationData(db, from, to);
+  const calendar = createScheduleCalendar(calculateRange(from, days, data));
+  return publicCalendar(calendar, request.method === "HEAD");
 }
 
 async function loadCalculationData(db, from, to) {
@@ -602,6 +633,13 @@ function publicJson(data, status = 200, omitBody = false, extraHeaders = {}) {
   return new Response(omitBody ? null : JSON.stringify(data), {
     status,
     headers: { ...PUBLIC_API_HEADERS, ...extraHeaders }
+  });
+}
+
+function publicCalendar(calendar, omitBody = false) {
+  return new Response(omitBody ? null : calendar, {
+    status: 200,
+    headers: PUBLIC_CALENDAR_HEADERS
   });
 }
 
